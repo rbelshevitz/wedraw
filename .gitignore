@@ -1,0 +1,16 @@
+.gocache/
+*.drawio-library.xml
+*_ug.xml
+
+# Local agent notes and planning documents
+AGENTS.md
+TODO.md
+
+# Visio source stencils and documents are not redistributed here
+*.vss
+*.vssx
+*.vssm
+*.vsx
+*.vsdx
+*.vsdm
+*.vdx
