@@ -2,7 +2,7 @@
 
 A CLI tool that makes Visio VSSX stencils usable as diagrams.net / draw.io libraries — without Microsoft Visio.
 
-[![Malware scan](https://github.com/rbelshevitz/wedraw/actions/workflows/ci.yml/badge.svg)](https://github.com/rbelshevitz/wedraw/actions/workflows/ci.yml)
+[![CI & Malware scan](https://img.shields.io/github/actions/workflow/status/rbelshevitz/wedraw/ci.yml?branch=main&label=CI%20%26%20Malware%20scan)](https://github.com/rbelshevitz/wedraw/actions/workflows/ci.yml)
 
 Have a useful Visio stencil but no Windows computer or Microsoft Visio at hand? Download wedraw, point it at the `.vssx` file, and import the result into draw.io.
 
