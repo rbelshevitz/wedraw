@@ -4,6 +4,8 @@ Go CLI for converting Visio VSSX stencils into importable diagrams.net / draw.io
 
 Have a useful Visio stencil but no Windows computer or Microsoft Visio at hand? Download wedraw, point it at the `.vssx` file, and import the generated library into draw.io.
 
+![An experienced technical drafter working with an editable network diagram](assets/wedraw-drafter.png)
+
 ## Why this tool exists
 
 Many Cisco and other vendor stencil collections were designed for Visio. People who use draw.io may have the stencil files but no Visio or Microsoft Office to open them. Rebuilding hundreds of network symbols by hand is not practical, and a plain SVG export can lose labels, colors, connection points, or editable parts.
@@ -21,7 +23,7 @@ The generated library keeps:
 
 ### Download and run
 
-Download the `v0.1` binary for your system from the [Releases](https://github.com/rbelshevitz/wedraw/releases) page:
+When a release is published, download the binary for your system from the [Releases](https://github.com/rbelshevitz/wedraw/releases) page. The planned `v0.1` release will include:
 
 - `wedraw-windows-amd64.exe` for 64-bit Windows;
 - `wedraw-linux-amd64` for 64-bit Linux.
