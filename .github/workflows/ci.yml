@@ -83,7 +83,9 @@ jobs:
         run: sudo apt-get update && sudo apt-get install --yes clamav
 
       - name: Update ClamAV signatures
-        run: sudo freshclam
+        run: |
+          sudo systemctl stop clamav-freshclam.service || true
+          sudo freshclam --stdout --verbose
 
       - name: Scan release binaries
         run: clamscan --infected --recursive --no-summary dist
