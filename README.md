@@ -2,6 +2,8 @@
 
 A CLI tool that makes Visio VSSX stencils usable as diagrams.net / draw.io libraries — without Microsoft Visio.
 
+[![Malware scan](https://github.com/rbelshevitz/wedraw/actions/workflows/ci.yml/badge.svg)](https://github.com/rbelshevitz/wedraw/actions/workflows/ci.yml)
+
 Have a useful Visio stencil but no Windows computer or Microsoft Visio at hand? Download wedraw, point it at the `.vssx` file, and import the result into draw.io.
 
 ![An experienced technical drafter working with an editable network diagram](assets/wedraw-drafter.png)

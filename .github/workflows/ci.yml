@@ -68,10 +68,30 @@ jobs:
           name: wedraw-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist/*
 
+  malware-scan:
+    name: Malware scan
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v7
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Install ClamAV
+        run: sudo apt-get update && sudo apt-get install --yes clamav
+
+      - name: Update ClamAV signatures
+        run: sudo freshclam
+
+      - name: Scan release binaries
+        run: clamscan --infected --recursive --no-summary dist
+
   release:
     name: Publish release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: build
+    needs: [build, malware-scan]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
