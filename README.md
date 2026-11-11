@@ -31,13 +31,13 @@ When a release is published, download the binary for your system from the [Relea
 Then run:
 
 ```text
-wedraw-windows-amd64.exe convert Cisco.vssx -o Cisco.drawio-library.xml
+wedraw-windows-amd64.exe Cisco.vssx -o Cisco.drawio-library.xml
 ```
 
 or on Linux:
 
 ```text
-./wedraw-linux-amd64 convert Cisco.vssx -o Cisco.drawio-library.xml
+./wedraw-linux-amd64 Cisco.vssx -o Cisco.drawio-library.xml
 ```
 
 No Visio or Office installation is needed.
@@ -45,8 +45,10 @@ No Visio or Office installation is needed.
 ### Build from source
 
 ```powershell
-go run ./cmd/wedraw convert input.vssx -o output.drawio-library.xml
+go run ./cmd/wedraw input.vssx -o output.drawio-library.xml
 ```
+
+The explicit form `wedraw convert input.vssx ...` is also supported, but is not required.
 
 If `-o` is omitted, wedraw writes the library next to the input file:
 
@@ -87,8 +89,6 @@ The original fill and line colors are kept. A line color can be changed only on 
 ## Command options
 
 `--mode faithful` is the default. Use `--mode ungroup` when you need to recolor or edit individual safe elements.
-
-Use `-h` for help, `-V` for the version, or `-v` for one progress message per shape.
 
 `--label-gap 15` controls the space between the artwork and its editable label. Lower it for compact symbols; raise it when a label needs more separation:
 

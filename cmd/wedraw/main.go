@@ -37,6 +37,10 @@ func main() {
 		usage()
 		return
 	default:
+		if !strings.HasPrefix(os.Args[1], "-") {
+			err = convert(os.Args[1:])
+			break
+		}
 		fmt.Fprintf(os.Stderr, "Error: unknown command %q\n\n", os.Args[1])
 		usage()
 		os.Exit(2)
@@ -52,8 +56,10 @@ func usage() {
 	fmt.Println("Microsoft Visio is not required; provide a .vssx file and import the result into draw.io.")
 	fmt.Println()
 	fmt.Println("Usage:")
+	fmt.Println("  wedraw <input.vssx> [-o output.drawio-library.xml] [--mode faithful|ungroup] [--label-gap pixels]")
 	fmt.Println("  wedraw inspect <input.vssx>")
 	fmt.Println("  wedraw convert <input.vssx> [-o output.drawio-library.xml] [--mode faithful|ungroup] [--label-gap pixels]")
+	fmt.Println("           (the explicit convert command is optional)")
 	fmt.Println("  wedraw --version")
 	fmt.Println()
 	fmt.Println("Modes:")
