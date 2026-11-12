@@ -4,7 +4,7 @@
 
 [![CI & Malware scan](https://img.shields.io/github/actions/workflow/status/rbelshevitz/wedraw/ci.yml?branch=main&label=CI%20%26%20Malware%20scan)](https://github.com/rbelshevitz/wedraw/actions/workflows/ci.yml) [![Go version](https://img.shields.io/github/go-mod/go-version/rbelshevitz/wedraw?label=Go)](https://go.dev/)
 
-A Go CLI that converts Microsoft Visio `.vssx` stencils into libraries that diagrams.net / draw.io can import.
+A CLI tool that converts Microsoft Visio `.vssx` stencils into libraries that diagrams.net / draw.io can import.
 
 `wedraw` is an independent project. It is not affiliated with Microsoft, draw.io Ltd., or draw.io AG.
 
