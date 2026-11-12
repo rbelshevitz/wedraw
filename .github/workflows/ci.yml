@@ -111,12 +111,20 @@ jobs:
           path: dist
           merge-multiple: true
 
+      - name: Package release archives
+        shell: bash
+        run: |
+          zip -j dist/wedraw-windows-amd64.zip dist/wedraw-windows-amd64.exe
+          zip -j dist/wedraw-linux-amd64.zip dist/wedraw-linux-amd64
+
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
-            gh release upload "${GITHUB_REF_NAME}" dist/wedraw-windows-amd64.exe dist/wedraw-linux-amd64 --clobber
+            gh release delete-asset "${GITHUB_REF_NAME}" wedraw-windows-amd64.exe --yes || true
+            gh release delete-asset "${GITHUB_REF_NAME}" wedraw-linux-amd64 --yes || true
+            gh release upload "${GITHUB_REF_NAME}" dist/wedraw-windows-amd64.zip dist/wedraw-linux-amd64.zip --clobber
           else
-            gh release create "${GITHUB_REF_NAME}" dist/wedraw-windows-amd64.exe dist/wedraw-linux-amd64 --generate-notes --title "wedraw ${GITHUB_REF_NAME}"
+            gh release create "${GITHUB_REF_NAME}" dist/wedraw-windows-amd64.zip dist/wedraw-linux-amd64.zip --generate-notes --title "wedraw ${GITHUB_REF_NAME}"
           fi
