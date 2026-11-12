@@ -117,6 +117,9 @@ func repairMasterArchive(filename string) (string, func(), bool, error) {
 			if relID == "" {
 				relID = rel.SelectAttrValue("Id", "")
 			}
+			if relID == "" {
+				relID = rel.SelectAttrValue("r:id", "")
+			}
 			if target := relTargets[relID]; strings.HasPrefix(target, "master") && strings.HasSuffix(target, ".xml") {
 				targetID = strings.TrimSuffix(strings.TrimPrefix(target, "master"), ".xml")
 			}
@@ -149,6 +152,21 @@ func repairMasterArchive(filename string) (string, func(), bool, error) {
 	assign := make(map[string]masterFile)
 	used := make(map[string]bool)
 	for _, item := range indexed {
+		// ID 0 is the vendor's document/package placeholder, not a drawable
+		// stencil master. Do not materialize its relationship target as a
+		// library entry.
+		if item.id == "0" {
+			continue
+		}
+		// vsdx-go v1.2.0 loads a master part by masters.xml/@ID, while the
+		// package relationship identifies which masterN.xml contains the
+		// actual content. Use the relationship as the source of content, then
+		// materialize it under the numeric ID expected by vsdx-go.
+		if direct, ok := files[item.targetID]; ok && !used[item.targetID] {
+			assign[item.id] = direct
+			used[item.targetID] = true
+			continue
+		}
 		bestID, bestScore := "", 0
 		for id, file := range files {
 			if used[id] {
@@ -160,7 +178,7 @@ func repairMasterArchive(filename string) (string, func(), bool, error) {
 			}
 		}
 		if bestScore >= 100 {
-			assign[item.targetID] = files[bestID]
+			assign[item.id] = files[bestID]
 			used[bestID] = true
 		}
 	}
@@ -168,8 +186,8 @@ func repairMasterArchive(filename string) (string, func(), bool, error) {
 		return "", func() {}, false, nil
 	}
 	changed := false
-	for targetID, file := range assign {
-		if file.key != "visio/masters/master"+targetID+".xml" {
+	for id, file := range assign {
+		if file.key != "visio/masters/master"+id+".xml" {
 			changed = true
 			break
 		}
@@ -188,10 +206,10 @@ func repairMasterArchive(filename string) (string, func(), bool, error) {
 	zw := zip.NewWriter(tempFile)
 	replacement := make(map[string][]byte)
 	replacementRels := make(map[string][]byte)
-	for targetID, file := range assign {
-		replacement["visio/masters/master"+targetID+".xml"] = file.xml
+	for id, file := range assign {
+		replacement["visio/masters/master"+id+".xml"] = file.xml
 		if len(file.rels) > 0 {
-			replacementRels["visio/masters/_rels/master"+targetID+".xml.rels"] = file.rels
+			replacementRels["visio/masters/_rels/master"+id+".xml.rels"] = file.rels
 		}
 	}
 	written := make(map[string]bool)
@@ -213,6 +231,24 @@ func repairMasterArchive(filename string) (string, func(), bool, error) {
 			return "", func() {}, false, writeErr
 		}
 		written[entry.name] = true
+	}
+	// A shuffled vendor stencil can reference a numeric master ID for which
+	// no same-numbered XML part exists. Materialize the repaired master part;
+	// otherwise vsdx-go silently skips that Master entry.
+	for name, data := range replacement {
+		if written[name] {
+			continue
+		}
+		w, createErr := zw.Create(name)
+		if createErr != nil {
+			cleanup()
+			return "", func() {}, false, createErr
+		}
+		if _, writeErr := io.Copy(w, bytes.NewReader(data)); writeErr != nil {
+			cleanup()
+			return "", func() {}, false, writeErr
+		}
+		written[name] = true
 	}
 	// A shuffled vendor stencil may have no .rels part under the target
 	// master ID. Create the repaired relationship part instead of silently
