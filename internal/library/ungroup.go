@@ -29,6 +29,28 @@ func NewFlatRenderTreeUngroupEntry(title string, groupWidth, groupHeight, artwor
 	return newRenderTreeUngroupEntry(title, groupWidth, groupHeight, artworkWidth, artworkHeight, root, points, true)
 }
 
+// RenderTreeIsSimple reports whether native decomposition is unlikely to
+// change the artwork. A single geometry path may be exposed safely; grouped
+// or multi-path artwork stays as the original SVG instead of being reduced.
+func RenderTreeIsSimple(root *vsdx.RenderNode) bool {
+	if root == nil || renderTreeHasUnsupportedFeature(root) {
+		return false
+	}
+	paths := 0
+	var visit func(*vsdx.RenderNode)
+	visit = func(node *vsdx.RenderNode) {
+		if node == nil || !node.Visible {
+			return
+		}
+		paths += len(node.Geometry)
+		for _, child := range node.Children {
+			visit(child)
+		}
+	}
+	visit(root)
+	return paths == 1
+}
+
 func newRenderTreeUngroupEntry(title string, groupWidth, groupHeight, artworkWidth, artworkHeight int, root *vsdx.RenderNode, points string, flatten bool) (Entry, error) {
 	if root == nil || artworkWidth < 1 || artworkHeight < 1 {
 		return Entry{}, fmt.Errorf("render tree is empty")
@@ -231,6 +253,34 @@ func NewSVGUngroupEntry(title string, width, height int, svg []byte, points stri
 		`<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/><mxCell id="2" value="" style="%s" vertex="1" parent="1"><mxGeometry width="%d" height="%d" as="geometry"/></mxCell>%s%s</root></mxGraphModel>`,
 		xmlEscapeAttr(groupStyle), width, height, strings.Join(pathCells, ""), strings.Join(textCells, ""))
 	return Entry{Title: title, Width: width, Height: height, XML: model}, nil
+}
+
+// SVGIsFlatPathArtwork reports whether the SVG can be represented as native
+// draw.io stencil cells without hiding the artwork inside an image element.
+func SVGIsFlatPathArtwork(svg []byte) bool {
+	document := etree.NewDocument()
+	if err := document.ReadFromBytes(svg); err != nil {
+		return false
+	}
+	root := document.Root()
+	if root == nil {
+		return false
+	}
+	viewBox, ok := parseSVGViewBox(root.SelectAttrValue("viewBox", ""))
+	if !ok || viewBox[2] <= 0 || viewBox[3] <= 0 {
+		return false
+	}
+	paths := 0
+	for _, child := range root.ChildElements() {
+		switch child.Tag {
+		case "path":
+			paths++
+		case "text":
+		default:
+			return false
+		}
+	}
+	return paths > 0
 }
 
 func pathCell(id, width, height int, commands string, source *etree.Element) string {

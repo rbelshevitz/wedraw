@@ -27,7 +27,7 @@ type Entry struct {
 	Tags   string `json:"tags,omitempty"`
 }
 
-var labelGapPixels = 15
+var labelGapPixels = 6
 
 // SetLabelGap controls the vertical gap between artwork and the editable
 // label in the generated library. The CLI is single-threaded, so this setting
@@ -57,9 +57,9 @@ func NewSVGStencilEntry(title string, width, height int, svg []byte, points stri
 	style := "shape=stencil(" + compressed + ");html=1;"
 	style += points
 	model := fmt.Sprintf(
-		`<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/><mxCell id="2" value="" style="%s" vertex="1" parent="1"><mxGeometry width="%d" height="%d" as="geometry"/></mxCell></root></mxGraphModel>`,
-		xmlEscapeAttr(style), width, height)
-	return Entry{Title: title, Width: width, Height: height, XML: model}, nil
+		`<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/><mxCell id="2" value="" tags="%s" style="%s" vertex="1" parent="1"><mxGeometry width="%d" height="%d" as="geometry"/></mxCell></root></mxGraphModel>`,
+		xmlEscapeAttr(title), xmlEscapeAttr(style), width, height)
+	return Entry{Title: title, Tags: title, Width: width, Height: height, XML: model}, nil
 }
 
 // NewSVGGroupEntry creates the common hybrid representation used by both
@@ -80,6 +80,8 @@ func NewSVGGroupEntry(title string, width, height int, svg []byte, points string
 	}
 	texts := root.FindElements(".//text")
 	textCells := make([]string, 0, len(texts))
+	groupHeight := height
+	imageHeight := height
 	for index, text := range texts {
 		value := strings.TrimSpace(svgTextContent(text))
 		if value == "" {
@@ -90,6 +92,11 @@ func NewSVGGroupEntry(title string, width, height int, svg []byte, points string
 			parent.RemoveChild(text)
 		}
 	}
+	if len(textCells) == 0 && strings.TrimSpace(title) != "" {
+		const fallbackLabelHeight = 18
+		groupHeight += fallbackLabelHeight + labelGapPixels
+		textCells = append(textCells, groupTextCellValue(4, title, width, groupHeight))
+	}
 	cleanSVG, err := document.WriteToBytes()
 	if err != nil {
 		return Entry{}, fmt.Errorf("write SVG for group mode: %w", err)
@@ -97,9 +104,9 @@ func NewSVGGroupEntry(title string, width, height int, svg []byte, points string
 	image := base64.StdEncoding.EncodeToString(cleanSVG)
 	groupStyle := "group;html=1;" + points
 	model := fmt.Sprintf(
-		`<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/><mxCell id="2" value="" style="%s" vertex="1" parent="1"><mxGeometry width="%d" height="%d" as="geometry"/></mxCell><mxCell id="3" value="" style="shape=image;html=1;image=data:image/svg+xml,%s;aspect=fixed;imageAspect=0;" vertex="1" parent="2"><mxGeometry x="0" y="0" width="%d" height="%d" as="geometry"/></mxCell>%s</root></mxGraphModel>`,
-		xmlEscapeAttr(groupStyle), width, height, image, width, height, strings.Join(textCells, ""))
-	return Entry{Title: title, Width: width, Height: height, XML: model}, nil
+		`<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/><mxCell id="2" value="" tags="%s" style="%s" vertex="1" parent="1"><mxGeometry width="%d" height="%d" as="geometry"/></mxCell><mxCell id="3" value="" style="shape=image;html=1;image=data:image/svg+xml,%s;aspect=fixed;imageAspect=1;" vertex="1" parent="2"><mxGeometry x="0" y="0" width="%d" height="%d" as="geometry"/></mxCell>%s</root></mxGraphModel>`,
+		xmlEscapeAttr(title), xmlEscapeAttr(groupStyle), width, groupHeight, image, width, imageHeight, strings.Join(textCells, ""))
+	return Entry{Title: title, Tags: title, Width: width, Height: groupHeight, XML: model}, nil
 }
 
 func svgTextContent(element *etree.Element) string {
@@ -147,6 +154,17 @@ func groupTextCell(id int, value string, width, height int, text *etree.Element)
 	return fmt.Sprintf(`<mxCell id="%d" value="%s" style="%s" vertex="1" parent="2"><mxGeometry x="0" y="%d" width="%d" height="%d" as="geometry"/></mxCell>`, id, xmlEscapeAttr(value), xmlEscapeAttr(style), y, width, labelHeight)
 }
 
+func groupTextCellValue(id int, value string, width, height int) string {
+	const fontSize = 8
+	labelHeight := 18
+	y := height - labelHeight - labelGapPixels
+	if y < 0 {
+		y = 0
+	}
+	style := "text;html=1;whiteSpace=wrap;align=center;verticalAlign=bottom;spacingBottom=1;fontColor=#000000;fontFamily=Arial;fontSize=8;"
+	return fmt.Sprintf(`<mxCell id="%d" value="%s" style="%s" vertex="1" parent="2"><mxGeometry x="0" y="%d" width="%d" height="%d" as="geometry"/></mxCell>`, id, xmlEscapeAttr(value), xmlEscapeAttr(style), y, width, labelHeight)
+}
+
 // NewSVGEntry creates a self-contained SVG image entry. It is intentionally
 // separate from native stencil output until anchors are mapped reliably.
 func NewSVGEntry(title string, width, height int, svg []byte) Entry {
@@ -157,6 +175,7 @@ func NewSVGEntryWithStyle(title string, width, height int, svg []byte, style str
 	encoded := base64.StdEncoding.EncodeToString(svg)
 	return Entry{
 		Title:  title,
+		Tags:   title,
 		Width:  width,
 		Height: height,
 		Data:   "data:image/svg+xml;base64," + encoded,

@@ -15,7 +15,7 @@ import (
 	"github.com/wijnberg-net/vsdx-go/vsdx"
 )
 
-const version = "0.1"
+const version = "0.2"
 const author = "Roman Belshevitz"
 
 func main() {
@@ -31,6 +31,8 @@ func main() {
 		return
 	case "inspect":
 		err = inspect(os.Args[2:])
+	case "debug":
+		err = debug(os.Args[2:])
 	case "convert":
 		err = convert(os.Args[2:])
 	case "help", "--help", "-h":
@@ -56,9 +58,10 @@ func usage() {
 	fmt.Println("Microsoft Visio is not required; provide a .vssx file and import the result into draw.io.")
 	fmt.Println()
 	fmt.Println("Usage:")
-	fmt.Println("  wedraw <input.vssx> [-o output.drawio-library.xml] [--mode faithful|ungroup] [--label-gap pixels]")
+	fmt.Println("  wedraw <input.vssx> [-o output.drawio-library.xml] [--mode faithful|ungroup] [--label-gap pixels] [--resolution pixels]")
 	fmt.Println("  wedraw inspect <input.vssx>")
-	fmt.Println("  wedraw convert <input.vssx> [-o output.drawio-library.xml] [--mode faithful|ungroup] [--label-gap pixels]")
+	fmt.Println("  wedraw debug <input.vssx> --master \"Master Name\" --out <directory>")
+	fmt.Println("  wedraw convert <input.vssx> [-o output.drawio-library.xml] [--mode faithful|ungroup] [--label-gap pixels] [--resolution pixels]")
 	fmt.Println("           (the explicit convert command is optional)")
 	fmt.Println("  wedraw --version")
 	fmt.Println()
@@ -70,7 +73,55 @@ func usage() {
 	fmt.Println("  -h, --help       show this help")
 	fmt.Println("  -V, --version    show the wedraw version")
 	fmt.Println("  -v, --verbose    print each shape while converting")
+	fmt.Println("  --resolution px  EMF raster long edge; default 2048, range 256-8192")
 	fmt.Printf("Copyright (c) 2026 %s\n", author)
+}
+
+func debug(args []string) error {
+	if len(args) < 1 {
+		return errors.New("debug requires an input .vssx file")
+	}
+	input := args[0]
+	masterName, output := "", "debug-master"
+	for i := 1; i < len(args); i++ {
+		switch args[i] {
+		case "--master":
+			if i+1 >= len(args) {
+				return errors.New("--master requires a name")
+			}
+			i++
+			masterName = args[i]
+		case "--out":
+			if i+1 >= len(args) {
+				return errors.New("--out requires a directory")
+			}
+			i++
+			output = args[i]
+		default:
+			return fmt.Errorf("unknown debug option %q", args[i])
+		}
+	}
+	if masterName == "" {
+		return errors.New("debug requires --master")
+	}
+	stencil, cleanup, err := visio.OpenStencil(input)
+	if err != nil {
+		return fmt.Errorf("open stencil: %w", err)
+	}
+	defer cleanup()
+	defer closeStencil(stencil)
+	if err := visio.ConvertEmbeddedMetafiles(stencil); err != nil {
+		return fmt.Errorf("recover embedded vector artwork: %w", err)
+	}
+	master := stencil.GetMaster(masterName)
+	if master == nil {
+		return fmt.Errorf("master %q not found", masterName)
+	}
+	if err := visio.ExportMasterDebug(stencil, master, output); err != nil {
+		return fmt.Errorf("export debug master: %w", err)
+	}
+	fmt.Printf("Debug master exported to %s\n", output)
+	return nil
 }
 
 func printVersion() {
@@ -81,10 +132,11 @@ func inspect(args []string) error {
 	if len(args) != 1 {
 		return errors.New("inspect requires exactly one input .vssx file")
 	}
-	stencil, err := vsdx.OpenStencil(args[0])
+	stencil, cleanup, err := visio.OpenStencil(args[0])
 	if err != nil {
 		return fmt.Errorf("open stencil: %w", err)
 	}
+	defer cleanup()
 	defer closeStencil(stencil)
 
 	masters := stencil.Masters
@@ -104,6 +156,10 @@ func inspect(args []string) error {
 }
 
 func convert(args []string) error {
+	resolution, err := parseRasterResolution(args)
+	if err != nil {
+		return err
+	}
 	out, input, mode, labelGap, verbose, showHelp, showVersion, err := parseConvertArgs(args)
 	if err != nil {
 		return err
@@ -120,9 +176,14 @@ func convert(args []string) error {
 		return errors.New("convert requires exactly one input .vssx file")
 	}
 	library.SetLabelGap(labelGap)
-	stencil, err := vsdx.OpenStencil(input)
+	visio.SetMetafileResolution(resolution)
+	stencil, cleanup, err := visio.OpenStencil(input)
 	if err != nil {
 		return fmt.Errorf("open stencil: %w", err)
+	}
+	defer cleanup()
+	if err := visio.ConvertEmbeddedMetafiles(stencil); err != nil {
+		return fmt.Errorf("recover embedded vector artwork: %w", err)
 	}
 	defer closeStencil(stencil)
 
@@ -136,9 +197,6 @@ func convert(args []string) error {
 		return fmt.Errorf("stencil %q contains no master shapes", input)
 	}
 
-	// OpenStencil keeps the original ZIP members for save operations. wedraw is
-	// read-only, so release that duplicate byte storage before rendering.
-	stencil.ZipFileContents = nil
 	fmt.Fprintf(os.Stderr, "Opening stencil: %s\n", filepath.Base(input))
 	fmt.Fprintf(os.Stderr, "Found %d shapes.\n", len(masters))
 	fmt.Fprintln(os.Stderr, "Resolving formulas and master inheritance...")
@@ -163,12 +221,23 @@ func convert(args []string) error {
 	converted := 0
 	for _, master := range masters {
 		name := master.Name()
+		displayName := visio.MasterLabel(master)
 		if verbose {
-			fmt.Fprintf(os.Stderr, "Converting shape: %s\n", library.SanitizeTitle(name))
+			fmt.Fprintf(os.Stderr, "Converting shape: %s\n", library.SanitizeTitle(displayName))
 		}
-		rendered, err := vsdx.MasterToSVG(master, vsdx.WithSize(240, 180), vsdx.WithPrecision(2))
-		if err != nil {
-			return fmt.Errorf("render %q: %w", name, err)
+		var rendered *vsdx.SVGResult
+		complexMaster := false
+		if artwork, artworkWidth, artworkHeight, found, artworkErr := visio.MasterEmbeddedArtwork(stencil, master); artworkErr != nil {
+			return fmt.Errorf("find embedded artwork for %q: %w", name, artworkErr)
+		} else if found {
+			complexMaster = true
+			scale := math.Min(240/artworkWidth, 180/artworkHeight)
+			rendered = &vsdx.SVGResult{SVG: artwork, Width: artworkWidth * scale, Height: artworkHeight * scale}
+		} else {
+			rendered, err = vsdx.MasterToSVG(master, vsdx.WithSize(240, 180), vsdx.WithPrecision(2))
+			if err != nil {
+				return fmt.Errorf("render %q: %w", name, err)
+			}
 		}
 		svg, err := visio.ShiftSVGText(rendered.SVG, visio.PrimaryTextMargin(master, rendered.Width))
 		if err != nil {
@@ -177,6 +246,10 @@ func convert(args []string) error {
 		svg, expandedWidth, expandedHeight, err := visio.ExpandSVGForText(svg, rendered.Width, rendered.Height)
 		if err != nil {
 			return fmt.Errorf("preserve text bounds for %q: %w", name, err)
+		}
+		svg, expandedWidth, expandedHeight, err = visio.NormalizeSVGViewBox(svg, expandedWidth, expandedHeight)
+		if err != nil {
+			return fmt.Errorf("normalize graphic bounds for %q: %w", name, err)
 		}
 		width, height := int(math.Ceil(expandedWidth)), int(math.Ceil(expandedHeight))
 		if width < 1 {
@@ -210,23 +283,37 @@ func convert(args []string) error {
 		switch mode {
 		case "faithful":
 			entry, err = library.NewSVGGroupEntry(
-				library.SanitizeTitle(name), width, height, svg, library.PointsStyle(points))
+				library.SanitizeTitle(displayName), width, height, svg, library.PointsStyle(points))
 		case "ungroup":
+			if complexMaster {
+				// Complex EMF/Foreign masters must remain whole. Their child
+				// coordinates are not safe to flatten into native cells yet.
+				entry, err = library.NewSVGGroupEntry(
+					library.SanitizeTitle(displayName), width, height, svg, library.PointsStyle(points))
+				break
+			}
 			rootShapes := master.ChildShapes()
+			if len(rootShapes) == 0 {
+				err = fmt.Errorf("master has no root shape")
+			}
 			if len(rootShapes) > 0 {
 				renderTree := vsdx.NewRenderTreeBuilder(rootShapes[0]).WithOptions(vsdx.RenderTreeOptions{
 					Width: rendered.Width, Height: rendered.Height, Precision: 2,
 				}).Build()
-				entry, err = library.NewFlatRenderTreeUngroupEntry(
-					library.SanitizeTitle(name), width, height,
-					int(math.Ceil(rendered.Width)), int(math.Ceil(rendered.Height)),
-					renderTree, library.PointsStyle(points))
+				if library.RenderTreeIsSimple(renderTree) {
+					entry, err = library.NewFlatRenderTreeUngroupEntry(
+						library.SanitizeTitle(displayName), width, height,
+						int(math.Ceil(expandedWidth)), int(math.Ceil(expandedHeight)),
+						renderTree, library.PointsStyle(points))
+				} else {
+					entry, err = library.NewSVGGroupEntry(
+						library.SanitizeTitle(displayName), width, height, svg, library.PointsStyle(points))
+				}
 			}
 			if err != nil {
-				// Keep the previous SVG decomposition/fallback when a render-tree
-				// feature is not yet safe to express as native cells.
-				entry, err = library.NewSVGUngroupEntry(
-					library.SanitizeTitle(name), width, height, svg, library.PointsStyle(points))
+				// Keep the complete SVG when native decomposition is not proven safe.
+				entry, err = library.NewSVGGroupEntry(
+					library.SanitizeTitle(displayName), width, height, svg, library.PointsStyle(points))
 			}
 		}
 		if err != nil {
@@ -238,6 +325,10 @@ func convert(args []string) error {
 		converted++
 		printProgress(converted, len(masters))
 	}
+	// Foreign images (EMF/SVG/bitmap media) are resolved lazily from the
+	// original ZIP members while rendering. Release them only after every
+	// master has been processed.
+	stencil.ZipFileContents = nil
 	fmt.Fprintln(os.Stderr)
 	if err := writer.Close(); err != nil {
 		return err
@@ -258,9 +349,28 @@ func convert(args []string) error {
 	return nil
 }
 
+func parseRasterResolution(args []string) (int, error) {
+	resolution := 2048
+	for i := 0; i < len(args); i++ {
+		if args[i] != "--resolution" {
+			continue
+		}
+		if i+1 >= len(args) {
+			return 0, errors.New("--resolution requires a number from 256 to 8192 pixels")
+		}
+		parsed, err := strconv.Atoi(args[i+1])
+		if err != nil || parsed < 256 || parsed > 8192 {
+			return 0, errors.New("--resolution requires a number from 256 to 8192 pixels")
+		}
+		resolution = parsed
+		i++
+	}
+	return resolution, nil
+}
+
 func parseConvertArgs(args []string) (output, input, mode string, labelGap int, verbose, showHelp, showVersion bool, err error) {
 	mode = "faithful"
-	labelGap = 15
+	labelGap = 6
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "-o", "--out":

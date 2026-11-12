@@ -83,14 +83,42 @@ func TestNewSVGGroupEntrySeparatesEditableText(t *testing.T) {
 	if !strings.Contains(entry.XML, `style="group;html=1;points=[[0.500000,0.500000]];"`) {
 		t.Fatalf("group cell is missing connection points: %s", entry.XML)
 	}
+	if entry.Tags != "Router" || !strings.Contains(entry.XML, `tags="Router"`) {
+		t.Fatalf("group is missing searchable title metadata: %#v", entry)
+	}
 	if !strings.Contains(entry.XML, `id="3" value="" style="shape=image`) {
 		t.Fatalf("group is missing the SVG artwork child: %s", entry.XML)
+	}
+	if !strings.Contains(entry.XML, `image=data:image/svg+xml,`) || strings.Contains(entry.XML, `image=data:image/svg+xml;base64,`) {
+		t.Fatalf("group artwork does not use a draw.io-compatible SVG data URI: %s", entry.XML)
 	}
 	if !strings.Contains(entry.XML, `id="4" value="Router" style="text;`) {
 		t.Fatalf("group is missing the editable text child: %s", entry.XML)
 	}
 	if strings.Contains(entry.XML, `<text`) {
 		t.Fatal("text was not removed from the artwork SVG")
+	}
+	assertCellTree(t, entry.XML)
+}
+
+func TestNewSVGGroupEntryAddsMasterLabelBelowArtwork(t *testing.T) {
+	SetLabelGap(6)
+	svg := []byte(`<svg viewBox="0 0 100 100"><path d="M0 0L100 100"/></svg>`)
+	entry, err := NewSVGGroupEntry("ThinkSystem SR850 V3 Rear", 100, 100, svg, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if entry.Height != 124 {
+		t.Fatalf("entry height = %d, want 124", entry.Height)
+	}
+	if !strings.Contains(entry.XML, `<mxGeometry width="100" height="124" as="geometry"/>`) {
+		t.Fatal("group did not reserve a label strip")
+	}
+	if !strings.Contains(entry.XML, `<mxGeometry x="0" y="0" width="100" height="100" as="geometry"/>`) {
+		t.Fatal("artwork was resized to make room for the label")
+	}
+	if !strings.Contains(entry.XML, `value="ThinkSystem SR850 V3 Rear"`) || !strings.Contains(entry.XML, `y="100" width="100" height="18"`) {
+		t.Fatal("master label was not placed in the bottom strip")
 	}
 	assertCellTree(t, entry.XML)
 }
@@ -123,7 +151,7 @@ func TestNewSVGUngroupEntryFallsBackForUnsupportedPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !strings.Contains(entry.XML, `shape=image`) {
-		t.Fatal("unsupported arc path was not preserved as an SVG fallback")
+		t.Fatal("unsupported arc path was not preserved as an SVG image fallback")
 	}
 	if !strings.Contains(entry.XML, `value="Arc" style="text;`) {
 		t.Fatal("fallback group lost the editable text cell")

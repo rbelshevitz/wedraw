@@ -1,4 +1,10 @@
 github.com/beevik/etree v1.4.1 h1:PmQJDDYahBGNKDcpdX8uPy1xRCwoCGVUiW669MEirVI=
 github.com/beevik/etree v1.4.1/go.mod h1:gPNJNaBGVZ9AwsidazFZyygnd+0pAU38N4D+WemwKNs=
+github.com/deploymenttheory/go-bindings-win32 v0.5.0 h1:B5qu2L+XvQRPe0/ni7Q9PAu3j3it94cyDJjGTeMLG/o=
+github.com/deploymenttheory/go-bindings-win32 v0.5.0/go.mod h1:J3mOfF0N1uFmI8Cm3GPtq1YJYnwAKUkOsmc36GYbm0w=
+github.com/mgilbir/golittlecms v0.0.0-20260727161601-f6af7cfe1556 h1:2ZUsOgMhxpHCYC8jyzeEnJZFLYGbXhqjAJWJBvY8q4U=
+github.com/mgilbir/golittlecms v0.0.0-20260727161601-f6af7cfe1556/go.mod h1:8SmvcTVpsTeqGaLqnhlCphGYaBeoeedJQB6AsKNNQxo=
+github.com/mgilbir/gowemf v0.1.1 h1:O+z59rSZBtaJNa6S5r8Z59MQ5Cmifb0rGHPQQKtTuco=
+github.com/mgilbir/gowemf v0.1.1/go.mod h1:5mmbuyGlTRyulKHMmT65lGxz+BoyJyTj2M5K26Lp5Dg=
 github.com/wijnberg-net/vsdx-go v1.2.0 h1:s+10akGDpF3FzE+qGLdxU58STBMHrBGP7oyFvJr3UEU=
 github.com/wijnberg-net/vsdx-go v1.2.0/go.mod h1:rFGfy4zqzMQ7g8UQTLiOjMBPrSpB9HZW8wG607Q55Ws=
