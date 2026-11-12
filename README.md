@@ -21,7 +21,7 @@ It preserves the important parts of a stencil:
 
 ## Quick start
 
-The `v0.2` release publishes ZIP archives for Windows and Linux AMD64. Download the appropriate archive from [Releases](https://github.com/rbelshevitz/wedraw/releases), unpack it, and run the executable inside:
+The `v0.2` release publishes ZIP archives for Windows and Linux AMD64. Download the appropriate archive from [Releases](https://github.com/rbelshevitz/wedraw/releases), unpack it, and run the included executable:
 
 ```powershell
 wedraw-windows-amd64.exe Cisco.vssx -o Cisco.drawio-library.xml
