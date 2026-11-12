@@ -60,12 +60,11 @@ Each entry has a title, tags, dimensions, and an `mxGraphModel`. Complex figures
 - [draw.io custom library format](https://www.drawio.com/docs/reference/format-custom-shape-library/)
 - [draw.io shape search](https://www.drawio.com/docs/manual/shapes/shape-search/)
 
-## Diagnostic script
+## Diagnostic scripts
 
-The repository also contains `scripts/scan-stencil.ps1`. It is a developer aid for inspecting a `.vssx` package without Visio. It reports the number of masters, groups, native Geometry and Foreign shapes, nesting depth, degenerate root sizes, relationship files, and media types such as EMF, SVG, and PNG.
+The repository includes two developer tools for investigating difficult stencils:
 
-The script does not convert a stencil and is not required for normal use of `wedraw`.
+- `scripts/scan-stencil.ps1` inspects a `.vssx` package without Visio. It reports masters, groups, native Geometry and Foreign shapes, nesting depth, degenerate root sizes, relationship files, and media types such as EMF, SVG, and PNG.
+- `scripts/memory-test.ps1` runs a Windows memory check. It builds the CLI, converts a local `.vssx` fixture, records peak Working Set and Private Memory, and fails when the configured budget is exceeded. Use `-Fixture`, `-Mode faithful` or `-Mode ungroup`, and `-MaxPrivateMB` to customize the run.
 
-The repository also contains `scripts/memory-test.ps1` for Windows-side memory checks. It builds the CLI, runs a selected mode against a local `.vssx` fixture, records peak Working Set and Private Memory, and fails when the configured budget is exceeded. Its default fixture is the local Cisco test file; pass `-Fixture`, `-Mode faithful` or `-Mode ungroup`, and `-MaxPrivateMB` to adjust the run.
-
-Both scripts are development tools. They are not needed to use a release binary.
+These scripts are for development and troubleshooting only. They are not required to use a release binary.
