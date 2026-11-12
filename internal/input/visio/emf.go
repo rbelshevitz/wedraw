@@ -8,6 +8,7 @@ import (
 	"image/png"
 	"math"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -24,6 +25,7 @@ type foreignLayerSpec struct {
 	relID         string
 	pinX, pinY    float64
 	width, height float64
+	order         int
 }
 
 type resolvedForeignLayer struct {
@@ -53,8 +55,17 @@ func MasterEmbeddedArtwork(stencil *vsdx.Stencil, master *vsdx.Page) ([]byte, fl
 		return nil, 0, 0, false, nil
 	}
 	var specs []foreignLayerSpec
+	shapeOrder := make(map[string]int)
+	nextOrder := 0
 	var walk func(*etree.Element)
 	walk = func(elem *etree.Element) {
+		if elem.Tag == "Shape" {
+			id := elem.SelectAttrValue("ID", "")
+			if id != "" {
+				shapeOrder[id] = nextOrder
+				nextOrder++
+			}
+		}
 		if elem.Tag == "Shape" && strings.EqualFold(elem.SelectAttrValue("Type", ""), "Foreign") {
 			if fd := elem.SelectElement("ForeignData"); fd != nil {
 				if rel := fd.SelectElement("Rel"); rel != nil {
@@ -63,6 +74,7 @@ func MasterEmbeddedArtwork(stencil *vsdx.Stencil, master *vsdx.Page) ([]byte, fl
 							relID: id,
 							pinX:  cellNumber(elem, "PinX"), pinY: cellNumber(elem, "PinY"),
 							width: cellNumber(elem, "Width"), height: cellNumber(elem, "Height"),
+							order: shapeOrder[elem.SelectAttrValue("ID", "")],
 						})
 					}
 				}
@@ -116,6 +128,7 @@ func MasterEmbeddedArtwork(stencil *vsdx.Stencil, master *vsdx.Page) ([]byte, fl
 		worldBounds := foreignWorldBounds(master)
 		for i := range layers {
 			if bounds, ok := worldBounds[layers[i].relID]; ok {
+				bounds.order = layers[i].order
 				layers[i].foreignLayerSpec = bounds
 			}
 		}
@@ -123,12 +136,13 @@ func MasterEmbeddedArtwork(stencil *vsdx.Stencil, master *vsdx.Page) ([]byte, fl
 	// Many HPE masters put the chassis/background in a native Shape before
 	// the Foreign image. Do not discard it: it carries the visible frame,
 	// fills, and borders that are absent from the EMF itself.
-	if nativeLayers := renderTreeNativeLayers(master); len(nativeLayers) > 0 {
+	if nativeLayers := renderTreeNativeLayers(master, shapeOrder); len(nativeLayers) > 0 {
 		// Keep the native background/frame. Once Foreign and native layers use
 		// the same world bounds, a neutral rectangle is a real underlay rather
 		// than the misplaced top block produced by the old Y mapping.
 		layers = append(nativeLayers, layers...)
 	}
+	sort.SliceStable(layers, func(i, j int) bool { return layers[i].order < layers[j].order })
 	artwork, width, height := composeSVGLayers(layers)
 	return artwork, width, height, true, nil
 }
@@ -156,6 +170,7 @@ func foreignWorldBounds(master *vsdx.Page) map[string]foreignLayerSpec {
 									relID: relID,
 									pinX:  bounds.X + bounds.Width/2, pinY: bounds.Y + bounds.Height/2,
 									width: bounds.Width, height: bounds.Height,
+									order: shapeOrderFor(master, shape.ID),
 								}
 							}
 						}
@@ -199,6 +214,7 @@ func renderTreeForeignLayers(master *vsdx.Page) []resolvedForeignLayer {
 							foreignLayerSpec: foreignLayerSpec{
 								pinX: bounds.X + bounds.Width/2, pinY: bounds.Y + bounds.Height/2,
 								width: bounds.Width, height: bounds.Height,
+								order: shapeOrderFor(master, shape.ID),
 							},
 						})
 					}
@@ -217,7 +233,7 @@ func renderTreeForeignLayers(master *vsdx.Page) []resolvedForeignLayer {
 // tree with Foreign artwork. Each shape keeps its own world bounds rather than
 // being stretched over the Foreign canvas; this preserves HPE outlines and
 // colored panels without reintroducing the old full-master rectangle overlay.
-func renderTreeNativeLayers(master *vsdx.Page) []resolvedForeignLayer {
+func renderTreeNativeLayers(master *vsdx.Page, shapeOrder map[string]int) []resolvedForeignLayer {
 	children := master.ChildShapes()
 	if len(children) == 0 {
 		return nil
@@ -240,6 +256,7 @@ func renderTreeNativeLayers(master *vsdx.Page) []resolvedForeignLayer {
 							foreignLayerSpec: foreignLayerSpec{
 								pinX: bounds.X + bounds.Width/2, pinY: bounds.Y + bounds.Height/2,
 								width: bounds.Width, height: bounds.Height,
+								order: shapeOrder[shape.ID],
 							},
 						})
 					}
@@ -252,6 +269,35 @@ func renderTreeNativeLayers(master *vsdx.Page) []resolvedForeignLayer {
 	}
 	walk(root, true)
 	return layers
+}
+
+func shapeOrderFor(master *vsdx.Page, id string) int {
+	if master == nil || master.XML() == nil || master.XML().Root() == nil {
+		return 0
+	}
+	order := 0
+	found := -1
+	var walk func(*etree.Element)
+	walk = func(elem *etree.Element) {
+		if found >= 0 {
+			return
+		}
+		if elem.Tag == "Shape" {
+			if elem.SelectAttrValue("ID", "") == id {
+				found = order
+				return
+			}
+			order++
+		}
+		for _, child := range elem.ChildElements() {
+			walk(child)
+		}
+	}
+	walk(master.XML().Root())
+	if found >= 0 {
+		return found
+	}
+	return 0
 }
 
 func cellNumber(shape *etree.Element, name string) float64 {

@@ -74,14 +74,54 @@ func repairMasterArchive(filename string) (string, func(), bool, error) {
 	if err := index.ReadFromBytes(mastersData); err != nil {
 		return "", func() {}, false, err
 	}
-	type masterIndexEntry struct{ id, name string }
+	// The ID in masters.xml is an index key, not necessarily the filename of
+	// the master part. Vendor stencils can legally/commonly point at a
+	// different masterN.xml through the package relationship part.
+	relTargets := make(map[string]string)
+	for _, entry := range entries {
+		if entry.name != "visio/masters/_rels/masters.xml.rels" {
+			continue
+		}
+		rels := etree.NewDocument()
+		if err := rels.ReadFromBytes(entry.data); err != nil {
+			return "", func() {}, false, err
+		}
+		for _, elem := range rels.Root().ChildElements() {
+			if elem.Tag != "Relationship" {
+				continue
+			}
+			id := elem.SelectAttrValue("Id", "")
+			if id == "" {
+				id = elem.SelectAttrValue("id", "")
+			}
+			target := elem.SelectAttrValue("Target", "")
+			if target == "" {
+				target = elem.SelectAttrValue("target", "")
+			}
+			if id != "" && target != "" {
+				relTargets[id] = filepath.Base(filepath.ToSlash(target))
+			}
+		}
+	}
+	type masterIndexEntry struct{ id, name, targetID string }
 	var indexed []masterIndexEntry
 	for _, elem := range index.Root().SelectElements("Master") {
 		name := elem.SelectAttrValue("NameU", "")
 		if name == "" {
 			name = elem.SelectAttrValue("Name", "")
 		}
-		indexed = append(indexed, masterIndexEntry{id: elem.SelectAttrValue("ID", ""), name: name})
+		id := elem.SelectAttrValue("ID", "")
+		targetID := id
+		if rel := elem.SelectElement("Rel"); rel != nil {
+			relID := rel.SelectAttrValue("id", "")
+			if relID == "" {
+				relID = rel.SelectAttrValue("Id", "")
+			}
+			if target := relTargets[relID]; strings.HasPrefix(target, "master") && strings.HasSuffix(target, ".xml") {
+				targetID = strings.TrimSuffix(strings.TrimPrefix(target, "master"), ".xml")
+			}
+		}
+		indexed = append(indexed, masterIndexEntry{id: id, name: name, targetID: targetID})
 	}
 	type masterFile struct {
 		xml, rels      []byte
@@ -120,7 +160,7 @@ func repairMasterArchive(filename string) (string, func(), bool, error) {
 			}
 		}
 		if bestScore >= 100 {
-			assign[item.id] = files[bestID]
+			assign[item.targetID] = files[bestID]
 			used[bestID] = true
 		}
 	}
@@ -128,8 +168,8 @@ func repairMasterArchive(filename string) (string, func(), bool, error) {
 		return "", func() {}, false, nil
 	}
 	changed := false
-	for id, file := range assign {
-		if file.key != "visio/masters/master"+id+".xml" {
+	for targetID, file := range assign {
+		if file.key != "visio/masters/master"+targetID+".xml" {
 			changed = true
 			break
 		}
@@ -148,10 +188,10 @@ func repairMasterArchive(filename string) (string, func(), bool, error) {
 	zw := zip.NewWriter(tempFile)
 	replacement := make(map[string][]byte)
 	replacementRels := make(map[string][]byte)
-	for id, file := range assign {
-		replacement["visio/masters/master"+id+".xml"] = file.xml
+	for targetID, file := range assign {
+		replacement["visio/masters/master"+targetID+".xml"] = file.xml
 		if len(file.rels) > 0 {
-			replacementRels["visio/masters/_rels/master"+id+".xml.rels"] = file.rels
+			replacementRels["visio/masters/_rels/master"+targetID+".xml.rels"] = file.rels
 		}
 	}
 	written := make(map[string]bool)
