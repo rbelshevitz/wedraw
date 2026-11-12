@@ -55,6 +55,15 @@ For complex vendor artwork, use the default `faithful` mode. `ungroup` cannot sa
 
 > **Platform note:** Native geometry works on both platforms. Windows uses GDI+ for difficult EMF artwork. Linux uses a portable Go fallback, so complex EMF details may differ; for the best match to Visio, convert EMF-heavy stencils on Windows.
 
+## Tested stencil collections
+
+Local validation has covered:
+
+- Cisco metric stencils, including `Cisco_All-Icons_V-1_m.vssx` and the related Cisco collection files. These are primarily native Geometry/Shape stencils.
+- HPE ProLiant collections covering DL, MicroServer, Misc, ML, RL, and XD families. These contain mixed native Geometry and EMF-backed Foreign artwork, including layered server views.
+
+The source stencils are external test fixtures and are not included in this repository. Results can still vary between vendor packages and stencil revisions.
+
 VSSX, EMF, and draw.io libraries have several format-specific details. If you are interested in the technical side, read [docs/FORMATS.md](docs/FORMATS.md).
 
 ## License
