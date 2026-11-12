@@ -13,6 +13,29 @@ This note explains why some Visio stencils convert cleanly and others need a mor
 
 A master is more than one picture. It may contain groups, nested coordinate systems, text, connection points, and several visual layers.
 
+## Complex figures
+
+Some vendor stencils contain complex figures rather than one editable path.
+A single master can combine:
+
+- native Visio `Geometry` sections with lines, curves, arcs or multiple
+  contours;
+- nested Groups with their own local coordinate systems and transforms;
+- text and connection points that belong to different child shapes;
+- one or more `Foreign` shapes backed by EMF, EMF+, WMF, SVG or raster media;
+- a meaningful XML child order that defines which layers cover other layers.
+
+Such a figure must be treated as a scene. The converter resolves the master
+relationship first, keeps native and Foreign layers separate, computes their
+transformed bounds, and composes them in source order. A near-zero root Group
+does not by itself define the visible canvas. The master label comes from the
+master index and must not be replaced by text inherited from an unrelated
+nested component.
+
+If a layer or EMF+ record cannot be rendered safely, faithful mode must keep
+the complete available artwork and report the compatibility limitation. It
+must not silently replace the figure with a rectangle or a guessed primitive.
+
 ## Two common kinds of artwork
 
 ### Native Geometry

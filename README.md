@@ -31,6 +31,19 @@ Open the draw.io app, choose **File → Import Library**, select the generated f
 
 If `-o` is omitted, the output is written next to the input file.
 
+## What's new in v0.3
+
+Version `0.3` gives special attention to rendering complex Visio figures. A
+master may combine native Geometry, nested Groups, text, connection points and
+one or more Foreign EMF/EMF+ layers. `wedraw` now preserves the relationship
+between those layers, their source order, bounds and master labels instead of
+matching parts by numeric filename or simplifying the figure to a primitive.
+
+For complex vendor artwork, the default `faithful` mode keeps the composed
+figure together. Windows is the reference conversion environment for EMF/EMF+
+because it can use GDI+; difficult EMF+ records may still have lower fidelity
+on the portable fallback path.
+
 ## Options
 
 ```text
