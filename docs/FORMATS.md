@@ -59,3 +59,9 @@ Each entry has a title, tags, dimensions, and an `mxGraphModel`. Complex figures
 - [Microsoft Visio file format](https://learn.microsoft.com/en-us/office/client-developer/visio/introduction-to-the-visio-file-formatvsdx)
 - [draw.io custom library format](https://www.drawio.com/docs/reference/format-custom-shape-library/)
 - [draw.io shape search](https://www.drawio.com/docs/manual/shapes/shape-search/)
+
+## Diagnostic script
+
+The repository also contains `scripts/scan-stencil.ps1`. It is a developer aid for inspecting a `.vssx` package without Visio. It reports the number of masters, groups, native Geometry and Foreign shapes, nesting depth, degenerate root sizes, relationship files, and media types such as EMF, SVG, and PNG.
+
+The script does not convert a stencil and is not required for normal use of `wedraw`.
