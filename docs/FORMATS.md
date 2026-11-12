@@ -65,3 +65,7 @@ Each entry has a title, tags, dimensions, and an `mxGraphModel`. Complex figures
 The repository also contains `scripts/scan-stencil.ps1`. It is a developer aid for inspecting a `.vssx` package without Visio. It reports the number of masters, groups, native Geometry and Foreign shapes, nesting depth, degenerate root sizes, relationship files, and media types such as EMF, SVG, and PNG.
 
 The script does not convert a stencil and is not required for normal use of `wedraw`.
+
+The repository also contains `scripts/memory-test.ps1` for Windows-side memory checks. It builds the CLI, runs a selected mode against a local `.vssx` fixture, records peak Working Set and Private Memory, and fails when the configured budget is exceeded. Its default fixture is the local Cisco test file; pass `-Fixture`, `-Mode faithful` or `-Mode ungroup`, and `-MaxPrivateMB` to adjust the run.
+
+Both scripts are development tools. They are not needed to use a release binary.
