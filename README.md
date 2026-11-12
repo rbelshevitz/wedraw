@@ -21,17 +21,10 @@ It preserves the important parts of a stencil:
 
 ## Quick start
 
-The `v0.2` release publishes ZIP archives for Windows and Linux AMD64. Download the appropriate archive from [Releases](https://github.com/rbelshevitz/wedraw/releases), unpack it, and run the included executable:
+The `v0.3` release publishes a Windows AMD64 ZIP archive. Download it from [Releases](https://github.com/rbelshevitz/wedraw/releases), unpack it, and run the included executable:
 
 ```powershell
 wedraw-windows-amd64.exe Cisco.vssx -o Cisco.drawio-library.xml
-```
-
-On Linux, build from source:
-
-```bash
-go build -o wedraw ./cmd/wedraw
-./wedraw Cisco.vssx -o Cisco.drawio-library.xml
 ```
 
 Open the draw.io app, choose **File → Import Library**, select the generated file, and add the imported library to the shape panel. Then drag a shape onto the canvas.

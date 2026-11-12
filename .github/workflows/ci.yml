@@ -15,7 +15,7 @@ permissions:
 jobs:
   test:
     name: Test
-    runs-on: ubuntu-24.04
+    runs-on: windows-2025
     steps:
       - name: Check out source
         uses: actions/checkout@v5
@@ -33,19 +33,9 @@ jobs:
         run: go test ./...
 
   build:
-    name: Build ${{ matrix.goos }}-${{ matrix.goarch }}
+    name: Build windows-amd64
     needs: test
-    runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - goos: linux
-            goarch: amd64
-            suffix: ''
-          - goos: windows
-            goarch: amd64
-            suffix: .exe
+    runs-on: windows-2025
     steps:
       - name: Check out source
         uses: actions/checkout@v5
@@ -57,19 +47,15 @@ jobs:
           cache: true
 
       - name: Build binary
-        shell: bash
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
+        shell: pwsh
         run: |
-          mkdir -p dist
-          go build -trimpath -ldflags="-s -w" \
-            -o "dist/wedraw-${GOOS}-${GOARCH}${{ matrix.suffix }}" ./cmd/wedraw
+          New-Item -ItemType Directory -Force dist | Out-Null
+          go build -trimpath -ldflags="-s -w" -o dist/wedraw-windows-amd64.exe ./cmd/wedraw
 
       - name: Upload CI artifact
         uses: actions/upload-artifact@v6
         with:
-          name: wedraw-${{ matrix.goos }}-${{ matrix.goarch }}
+          name: wedraw-windows-amd64
           path: dist/*
 
   malware-scan:
@@ -115,7 +101,6 @@ jobs:
         shell: bash
         run: |
           zip -j dist/wedraw-windows-amd64.zip dist/wedraw-windows-amd64.exe
-          zip -j dist/wedraw-linux-amd64.zip dist/wedraw-linux-amd64
 
       - name: Create GitHub release
         env:
@@ -123,8 +108,7 @@ jobs:
         run: |
           if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
             gh release delete-asset "${GITHUB_REF_NAME}" wedraw-windows-amd64.exe --yes || true
-            gh release delete-asset "${GITHUB_REF_NAME}" wedraw-linux-amd64 --yes || true
-            gh release upload "${GITHUB_REF_NAME}" dist/wedraw-windows-amd64.zip dist/wedraw-linux-amd64.zip --clobber
+            gh release upload "${GITHUB_REF_NAME}" dist/wedraw-windows-amd64.zip --clobber
           else
-            gh release create "${GITHUB_REF_NAME}" dist/wedraw-windows-amd64.zip dist/wedraw-linux-amd64.zip --generate-notes --title "wedraw ${GITHUB_REF_NAME}"
+            gh release create "${GITHUB_REF_NAME}" dist/wedraw-windows-amd64.zip --generate-notes --title "wedraw ${GITHUB_REF_NAME}"
           fi

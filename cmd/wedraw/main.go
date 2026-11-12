@@ -15,7 +15,7 @@ import (
 	"github.com/wijnberg-net/vsdx-go/vsdx"
 )
 
-const version = "0.2"
+const version = "0.3"
 const author = "Roman Belshevitz"
 
 func main() {
